@@ -1,0 +1,161 @@
+// SPDX-License-Identifier: MIT
+
+pragma solidity ^0.8.0;
+
+import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "../data/Structs.sol";
+
+interface IFarm {
+    event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
+    event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
+
+    event WithdrawWithPenalty(
+        address indexed user,
+        uint256 indexed pid,
+        uint256 amount
+    );
+
+    event EmergencyWithdraw(
+        address indexed user,
+        uint256 indexed pid,
+        uint256 amount
+    );
+
+    event ClaimRewards(
+        address indexed user,
+        uint256 indexed pid,
+        uint256 amount
+    );
+
+    event ClaimLPRewards(
+        address indexed user,
+        uint256 indexed pid,
+        uint256 amount
+    );
+
+    event RewardsPerSecondChanged(uint256 oldRewardsPerSecond, uint256 newRewardsPerSecond);
+
+    event PoolCreated(uint256 pid,address token);
+
+    event MultiplierUpdates(uint256 indexed pid,uint256 oldMultiplier, uint256 newMultiplier);
+
+    event PaidStakeFee(
+        address indexed user,
+        uint256 indexed poolId,
+        uint256 amount
+    );
+
+    event PaidEarlyPenalty(
+        address indexed user,
+        uint256 indexed poolId,
+        uint256 penaltyAmount
+    );
+
+    function DAY_IN_SECONDS() external pure returns(uint256);
+
+
+    function rewardToken() external view returns(IERC20);
+
+    function totalERC20Rewards() external view returns(uint256);
+
+    function paidOut() external view returns(uint256);
+
+    function rewardPerSecond() external view returns(uint256);
+
+    function lastEmissionChange() external view returns(uint256);
+
+    function rewardsAmountBeforeLastChange() external view returns(uint256);
+
+    //function poolInfo(uint256 id) external view returns(PoolInfo[] memory);
+
+    //function usersDeposits(uint256 depositId) external view returns(DepositInfo memory);
+
+    function usersInfos(uint256 poolId, address user) external view returns(UserInfo memory);
+
+    // Total Multiplier. Must be the sum of all Multipliers in all pools.
+    function totalMultiplier() external view returns(uint256);
+
+    // The time when farming starts.
+    function startTime() external view returns(uint256);
+
+    // The time when farming ends.
+    function endTime() external view returns(uint256);
+
+    //fee wallet's address
+    function feeCollector() external view returns(address);
+
+    function setStartTime(uint256 epochTimestamp_) external;
+
+    function setEndTime(uint256 epochTimestamp_) external;
+
+    function changefeeCollector(address newfeeCollector_) external;
+
+    function fund(uint256 amount_) external;
+
+    function addPool(
+        IERC20 lpToken_,
+        uint256 multiplier_,
+        uint256 depositFee_,
+        uint256 lockPeriodInDays_,
+        uint256 earlyUnlockPenalty_
+    ) external;
+
+    function updateMultiplier(uint256 poolId_, uint256 multiplier_) external;
+
+    function massUpdatePools() external;
+
+    /**
+        Update reward variables of the given pool to be up-to-date.
+        @param poolPid_ pool index
+     */
+    function updatePool(uint256 poolPid_) external;
+
+    function stakeInPool(uint256 poolPid_, uint256 amount_)        external;
+
+
+    function withdrawUnlockedDeposit(
+        uint256 poolPid_,
+        uint256 userDepositIndex_
+    ) external;
+
+
+    function emergencyWithdraw(uint256 poolPid_) external;
+
+
+    function unstakeWithPenalty(uint256 poolPid_, uint256 userDepositIndex_)
+        external;
+
+
+    function recoverTokens(IERC20 tokenAddresss_, address to_)
+        external;
+
+
+    function changeRewardPerSecond(uint256 rewardPerSecond_) external;
+
+
+    function getUserInfo(uint256 poolPid_, address user_)
+        external
+        view
+        returns (UserInfo memory);
+
+
+    function poolLength() external view returns (uint256);
+
+    function totalDeposited(uint256 poolId_, address user_)
+        external
+        view
+        returns (uint256);
+
+
+    function getUserDeposits(uint256 poolId_, address user_)
+        external
+        view
+        returns (DepositInfo[] memory);
+
+    function pending(uint256 poolId_, address user_)
+        external
+        view
+        returns (uint256);
+
+    function totalPending() external view returns (uint256);
+}
