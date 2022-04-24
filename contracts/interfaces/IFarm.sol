@@ -9,46 +9,25 @@ interface IFarm {
     event Deposit(address indexed user, uint256 indexed pid, uint256 amount);
     event Withdraw(address indexed user, uint256 indexed pid, uint256 amount);
 
-    event WithdrawWithPenalty(
-        address indexed user,
-        uint256 indexed pid,
-        uint256 amount
-    );
-
     event EmergencyWithdraw(
         address indexed user,
         uint256 indexed pid,
         uint256 amount
     );
 
-    event ClaimRewards(
-        address indexed user,
+    event ClaimRewards(address indexed user, uint256 indexed pid, uint256 amount);
+
+    event RewardsPerSecondChanged(
+        uint256 oldRewardsPerSecond,
+        uint256 newRewardsPerSecond
+    );
+
+    event PoolCreated(uint256 pid, address token);
+
+    event MultiplierUpdates(
         uint256 indexed pid,
-        uint256 amount
-    );
-
-    event ClaimLPRewards(
-        address indexed user,
-        uint256 indexed pid,
-        uint256 amount
-    );
-
-    event RewardsPerSecondChanged(uint256 oldRewardsPerSecond, uint256 newRewardsPerSecond);
-
-    event PoolCreated(uint256 pid,address token);
-
-    event MultiplierUpdates(uint256 indexed pid,uint256 oldMultiplier, uint256 newMultiplier);
-
-    event PaidStakeFee(
-        address indexed user,
-        uint256 indexed poolId,
-        uint256 amount
-    );
-
-    event PaidEarlyPenalty(
-        address indexed user,
-        uint256 indexed poolId,
-        uint256 penaltyAmount
+        uint256 oldMultiplier,
+        uint256 newMultiplier
     );
 
     // Number of LP pools
@@ -58,20 +37,15 @@ interface IFarm {
 
     function unPause() external;
 
-    // change FeeCollector Wallet (the one that receives the fees)
-    function changefeeCollector(address newFeeWallet_) external;
-
     // Fund the farm, increase the end block
     function fund(uint256 amount_) external;
 
-    // create a new Pool for LP 
+    // create a new Pool for LP
     function addPool(
         IERC20 lpToken_,
         uint256 multiplier_,
-        uint256 depositFee_,
-        uint256 lockPeriodInDays_,
-        uint256 earlyUnlockPenalty_
-        ) external;
+        uint256 lockPeriodInDays_
+    ) external;
 
     // Update the given pool's ERC20 allocation point. Can only be called by the owner.
     function updateMultiplier(uint256 poolId_, uint256 allocPoint_) external;
@@ -86,10 +60,7 @@ interface IFarm {
         view
         returns (DepositInfo[] memory);
 
-    function pending(uint256 pid_, address user_)
-        external
-        view
-        returns (uint256);
+    function pending(uint256 pid_, address user_) external view returns (uint256);
 
     function totalPending() external view returns (uint256);
 
@@ -99,15 +70,10 @@ interface IFarm {
 
     function stakeInPool(uint256 poolPid_, uint256 amount_) external;
 
-    function withdrawUnlockedDeposit(
-        uint256 poolPid_,
-        uint256 userDepositIndex_
-    ) external;
+    function withdrawUnlockedDeposit(uint256 poolPid_, uint256 userDepositIndex_)
+        external;
 
     function emergencyWithdraw(uint256 poolPid_) external;
-
-    function unstakeWithPenalty(uint256 poolPid_, uint256 userDepositIndex_)
-        external;
 
     function recoverTokens(IERC20 _erc20, address _to) external;
 

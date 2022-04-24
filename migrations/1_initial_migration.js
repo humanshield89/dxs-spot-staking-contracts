@@ -12,40 +12,16 @@ module.exports = async function (deployer, network, addresses) {
   if(network === "kovan") {
     
     await deployer.deploy(
-      ERC20Mock9,
-      'DX SPOT',
-      'DXS',
-      '1000000000000000000000000'
-    );
-
-    await deployer.deploy(
-      USDTMOCK,
-      'USDT',
-      'Tether',
-      '1000000000000000000000000'
-    );
-
-    await deployer.deploy(
-      BUSDMOCK,
-      'BUSD',
-      'Binance USD',
-      '1000000000000000000000000'
-    );
-
-
-    await deployer.deploy(
       LockedStakingFarm,
-      ERC20Mock9.address,
+      '0x5967338dc055E9fcaa342812608C7EbC8571104d',
       addresses[0],
-      addresses[0]      
     );
   }
   else if (network === 'bsc'){
     await deployer.deploy(
       LockedStakingFarm,
       config.bsc.rewardToken,
-      config.bsc.owner,
-      config.bsc.feeCollector      
+      addresses[0],
     );
   }
   else if (network === 'chrono'){

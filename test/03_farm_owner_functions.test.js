@@ -57,9 +57,9 @@ contract('Farm Special Functions', ([owner, alice, bob, carl, adminWallet, admin
         const currentBlock = await getCurrentTime();
         this.startTime = currentBlock + 100;
 
-        this.farm = await Farm.new(this.bep20.address, owner, adminWallet);
+        this.farm = await Farm.new(this.bep20.address, owner);
         // withdrawal fee of 5% (argument/1000)
-        await this.farm.addPool(this.lp.address,15,0,0,0);
+        await this.farm.addPool(this.lp.address,15,0);
         await this.farm.setStartTime(this.startTime);
 
         await this.bep20.approve(this.farm.address, toWei('5000000'));

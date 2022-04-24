@@ -20,7 +20,10 @@ import "@openzeppelin/contracts/utils/Context.sol";
 abstract contract CustomOwnable is Context {
     address private _owner;
 
-    event OwnershipTransferred(address indexed previousOwner, address indexed newOwner);
+    event OwnershipTransferred(
+        address indexed previousOwner,
+        address indexed newOwner
+    );
 
     /**
      * @dev Initializes the contract setting the deployer as the initial owner.

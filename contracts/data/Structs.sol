@@ -23,7 +23,5 @@ struct PoolInfo {
     uint256 lastRewardTime; // Last time where ERC20s distribution occurs.
     uint256 accERC20PerShare; // Accumulated ERC20s per share, times 1e36.
     uint256 stakedAmount; // Amount of @lpToken staked in this pool
-    uint256 stakeFee; // fee on staking percentage
     uint256 lockPeriod; // lock period in days
-    uint256 penalty; // percentage penalty for early unstake
 }

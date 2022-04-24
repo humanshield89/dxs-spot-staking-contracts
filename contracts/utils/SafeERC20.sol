@@ -73,11 +73,7 @@ library SafeERC20 {
         uint256 newAllowance = token.allowance(address(this), spender) + value;
         _callOptionalReturn(
             token,
-            abi.encodeWithSelector(
-                token.approve.selector,
-                spender,
-                newAllowance
-            )
+            abi.encodeWithSelector(token.approve.selector, spender, newAllowance)
         );
     }
 
@@ -95,11 +91,7 @@ library SafeERC20 {
             uint256 newAllowance = oldAllowance - value;
             _callOptionalReturn(
                 token,
-                abi.encodeWithSelector(
-                    token.approve.selector,
-                    spender,
-                    newAllowance
-                )
+                abi.encodeWithSelector(token.approve.selector, spender, newAllowance)
             );
         }
     }

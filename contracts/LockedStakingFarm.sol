@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 
-pragma solidity ^0.8.13;
+pragma solidity ^0.8.9;
 
 import "./utils/SafeERC20.sol";
 import "./interfaces/IFarm.sol";
@@ -9,7 +9,7 @@ import "./utils/CustomOwnable.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 
 /**
-    Locked farm with deposit and early widthrawal fees 
+    Locked farm per pool lock , no early widthrawal
  */
 
 contract LockedStakingFarm is CustomOwnable, Pausable, IFarm {
@@ -53,12 +53,8 @@ contract LockedStakingFarm is CustomOwnable, Pausable, IFarm {
     // The time when farming ends.
     uint256 public endTime;
 
-    //fee wallet's address
-    address public feeCollector;
-
-    constructor(IERC20 rewardTokenAddress_,address owner_, address feeCollector_) CustomOwnable(owner_){
+    constructor(IERC20 rewardTokenAddress_, address owner_) CustomOwnable(owner_) {
         rewardToken = rewardTokenAddress_;
-        feeCollector = feeCollector_;
     }
 
     function setStartTime(uint256 epochTimestamp_) external onlyOwner {
@@ -81,10 +77,7 @@ contract LockedStakingFarm is CustomOwnable, Pausable, IFarm {
         in case where the owner wants to end the farm early and recover the rewards funded
      */
     function setEndTime(uint256 epochTimestamp_) external onlyOwner {
-        require(
-            epochTimestamp_ < endTime,
-            "can't extend the farm without funding"
-        );
+        require(epochTimestamp_ < endTime, "can't extend the farm without funding");
         uint256 left;
 
         if (rewardPerSecond == 0) {
@@ -115,24 +108,6 @@ contract LockedStakingFarm is CustomOwnable, Pausable, IFarm {
     }
 
     /**
-        @dev change feeCollector (the one that receives the fees) 
-        this address have no control in this farm it is only used
-        to send fees collected
-        @param newfeeCollector_ the new fee wallet address
-    */
-    function changefeeCollector(address newfeeCollector_)
-        external
-        override
-        onlyOwner
-    {
-        require(
-            newfeeCollector_ != address(0),
-            "changefeeCollector: can't be zero address"
-        );
-        feeCollector = newfeeCollector_;
-    }
-
-    /**
         @dev Fund the farm, increases the endTime, keep in mind that this function expect you to have aproved this ammount
         @param amount_ Amount of rewards token to fund (will be transfered from the caller's balance)
      */
@@ -158,7 +133,7 @@ contract LockedStakingFarm is CustomOwnable, Pausable, IFarm {
 
         uint256 diff = rewardToken.balanceOf(address(this)) - balanceBefore;
         require(amount_.sub(leftOver) == diff, "Farm: detected fee on tx");
-        
+
         endTime += rewardPerSecond > 0
             ? diff.div(rewardPerSecond)
             : type(uint256).max;
@@ -170,22 +145,14 @@ contract LockedStakingFarm is CustomOwnable, Pausable, IFarm {
         @dev Add a new pool to the farm. Can only be called by the owner.
         @param multiplier_ pool multiplier
         @param lpToken_ The address of the token that will be stake in this pool
-        @param depositFee_ percentage of the deposit as fee (this will apply directly when people stake on their capital )  
         @param lockPeriodInDays_ The amount of days this pool locks the stake put 0 for no lock
-        @param earlyUnlockPenalty_ The percentage that will be taken as penalty for early unstake
      */
 
     function addPool(
         IERC20 lpToken_,
         uint256 multiplier_,
-        uint256 depositFee_,
-        uint256 lockPeriodInDays_,
-        uint256 earlyUnlockPenalty_
+        uint256 lockPeriodInDays_
     ) external override onlyOwner {
-        require(
-            earlyUnlockPenalty_ < 100,
-            "earlyUnlockPenaltyPercentage_ should be < 100"
-        );
         massUpdatePools();
 
         uint256 lastRewardTime = block.timestamp > startTime
@@ -199,12 +166,10 @@ contract LockedStakingFarm is CustomOwnable, Pausable, IFarm {
                 lastRewardTime: lastRewardTime,
                 accERC20PerShare: 0,
                 stakedAmount: 0,
-                stakeFee: depositFee_,
-                lockPeriod: lockPeriodInDays_, // lock period in days
-                penalty: earlyUnlockPenalty_
+                lockPeriod: lockPeriodInDays_ // lock period in days
             })
         );
-        uint256 pid = poolInfo.length-1;
+        uint256 pid = poolInfo.length - 1;
         emit PoolCreated(pid, address(lpToken_));
         emit MultiplierUpdates(pid, 0, multiplier_);
     }
@@ -220,12 +185,12 @@ contract LockedStakingFarm is CustomOwnable, Pausable, IFarm {
         onlyOwner
     {
         massUpdatePools();
-        
+
         emit MultiplierUpdates(poolId_, poolInfo[poolId_].multiplier, multiplier_);
 
         totalMultiplier = totalMultiplier.sub(poolInfo[poolId_].multiplier).add(
-                multiplier_
-            );
+            multiplier_
+        );
         poolInfo[poolId_].multiplier = multiplier_;
     }
 
@@ -244,9 +209,7 @@ contract LockedStakingFarm is CustomOwnable, Pausable, IFarm {
         @param poolPid_ pool index
      */
     function updatePool(uint256 poolPid_) public override {
-        uint256 lastTime = block.timestamp < endTime
-            ? block.timestamp
-            : endTime;
+        uint256 lastTime = block.timestamp < endTime ? block.timestamp : endTime;
         uint256 lastRewardTime = poolInfo[poolPid_].lastRewardTime;
 
         if (lastTime <= lastRewardTime) {
@@ -285,7 +248,6 @@ contract LockedStakingFarm is CustomOwnable, Pausable, IFarm {
         //PoolInfo storage pool = poolInfo[poolPid_];
         uint256 amount = usersInfos[poolPid_][msg.sender].amount;
         IERC20 lpToken = poolInfo[poolPid_].lpToken;
-        uint256 fee = poolInfo[poolPid_].stakeFee;
         //UserInfo storage user = usersInfos[poolPid_][msg.sender];
         updatePool(poolPid_);
 
@@ -295,23 +257,10 @@ contract LockedStakingFarm is CustomOwnable, Pausable, IFarm {
         }
 
         if (amount_ > 0) {
-            // take deposit fee
-            uint256 depositFee;
-            if (fee > 0) {
-                depositFee = amount_.mul(poolInfo[poolPid_].stakeFee).div(100);
-                lpToken.safeTransferFrom(msg.sender, feeCollector, depositFee);
-                emit PaidStakeFee(msg.sender, poolPid_, depositFee);
-            }
             // transfer
             uint256 balanceBefore = lpToken.balanceOf(address(this));
-            lpToken.safeTransferFrom(
-                msg.sender,
-                address(this),
-                amount_.sub(depositFee)
-            );
-            uint256 netDeposit = lpToken.balanceOf(address(this)).sub(
-                balanceBefore
-            );
+            lpToken.safeTransferFrom(msg.sender, address(this), amount_);
+            uint256 netDeposit = lpToken.balanceOf(address(this)).sub(balanceBefore);
             // update pool's info
             poolInfo[poolPid_].stakedAmount += netDeposit;
             // update user's info
@@ -339,10 +288,11 @@ contract LockedStakingFarm is CustomOwnable, Pausable, IFarm {
         @param poolPid_ pool index
         @param userDepositIndex_ deposit index in usersInfos[poolPid_][msg.sender].deposits
      */
-    function withdrawUnlockedDeposit(
-        uint256 poolPid_,
-        uint256 userDepositIndex_
-    ) external override whenNotPaused {
+    function withdrawUnlockedDeposit(uint256 poolPid_, uint256 userDepositIndex_)
+        external
+        override
+        whenNotPaused
+    {
         uint256 amount = usersDeposits[
             usersInfos[poolPid_][msg.sender].deposits[userDepositIndex_]
         ].amount;
@@ -392,49 +342,6 @@ contract LockedStakingFarm is CustomOwnable, Pausable, IFarm {
     }
 
     /**
-        @dev instake with a penalty 
-     */
-    function unstakeWithPenalty(uint256 poolPid_, uint256 userDepositIndex_)
-        external
-        override
-        whenNotPaused
-    {
-        uint256 amount = usersDeposits[
-            usersInfos[poolPid_][msg.sender].deposits[userDepositIndex_]
-        ].amount;
-        require(
-            usersDeposits[
-                usersInfos[poolPid_][msg.sender].deposits[userDepositIndex_]
-            ].depositTime +
-                DAY_IN_SECONDS *
-                poolInfo[poolPid_].lockPeriod >
-                block.timestamp,
-            "unstakeWithPenalty: unlocked!"
-        );
-
-        updatePool(poolPid_);
-
-        // claim pending rewards
-        _claimPending(poolPid_, msg.sender);
-        // end claim
-
-        uint256 penaltyAmount = amount.mul(poolInfo[poolPid_].penalty).div(100);
-
-        // send tokens to user
-        IERC20 lpToken = poolInfo[poolPid_].lpToken;
-        lpToken.safeTransfer(address(msg.sender), amount.sub(penaltyAmount));
-        // send adminShare to feeCollector
-        if (penaltyAmount > 0)
-            lpToken.safeTransfer(feeCollector, penaltyAmount);
-        // distribute LP on stakers
-
-        _removeDeposit(poolPid_, msg.sender, userDepositIndex_);
-
-        emit WithdrawWithPenalty(msg.sender, poolPid_, amount.sub(penaltyAmount));
-        emit PaidEarlyPenalty(msg.sender, poolPid_, penaltyAmount);
-    }
-
-    /**
         @dev recover any ERC20 tokens sent by mistake or recover rewards 
         after all farms have ended and all users have unstaked
         technically can be called while farming is still active
@@ -459,8 +366,7 @@ contract LockedStakingFarm is CustomOwnable, Pausable, IFarm {
         }
 
         // only transfer the amount not belonging to users
-        uint256 amount = tokenAddresss_.balanceOf(address(this)) -
-            userStakeLeft;
+        uint256 amount = tokenAddresss_.balanceOf(address(this)) - userStakeLeft;
         if (amount > 0) tokenAddresss_.transfer(to_, amount);
     }
 
@@ -490,12 +396,8 @@ contract LockedStakingFarm is CustomOwnable, Pausable, IFarm {
                 : startTime + newLeftBlocks
             : type(uint256).max;
 
-        
         if (rewardPerSecond_ > rewardPerSecond)
-            require(
-                newEndBlock > block.timestamp,
-                "rewards are not sufficient"
-            );
+            require(newEndBlock > block.timestamp, "rewards are not sufficient");
 
         massUpdatePools();
 
@@ -511,10 +413,10 @@ contract LockedStakingFarm is CustomOwnable, Pausable, IFarm {
         // send any excess rewards to fee (caused by rewards % rewardperSecond != 0) to prevent precision loss
         if (leftoverRewards > 0) {
             // this is not a payout hence the 'false'
-            _transferRewardToken(feeCollector, leftoverRewards, false);
+            _transferRewardToken(owner(), leftoverRewards, false);
             totalERC20Rewards -= leftoverRewards;
         }
-        emit RewardsPerSecondChanged(rewardPerSecond , oldRewardsPerSecond);
+        emit RewardsPerSecondChanged(rewardPerSecond, oldRewardsPerSecond);
     }
 
     /**
@@ -566,9 +468,7 @@ contract LockedStakingFarm is CustomOwnable, Pausable, IFarm {
         returns (DepositInfo[] memory)
     {
         UserInfo storage user = usersInfos[poolId_][user_];
-        DepositInfo[] memory userDeposits = new DepositInfo[](
-            user.deposits.length
-        );
+        DepositInfo[] memory userDeposits = new DepositInfo[](user.deposits.length);
 
         for (uint8 i = 0; i < user.deposits.length; i++) {
             userDeposits[i] = usersDeposits[user.deposits[i]];
@@ -594,9 +494,7 @@ contract LockedStakingFarm is CustomOwnable, Pausable, IFarm {
         uint256 lpSupply = pool.stakedAmount;
 
         if (block.timestamp > pool.lastRewardTime && lpSupply != 0) {
-            uint256 lastTime = block.timestamp < endTime
-                ? block.timestamp
-                : endTime;
+            uint256 lastTime = block.timestamp < endTime ? block.timestamp : endTime;
             uint256 nrOfBlocks = lastTime.sub(pool.lastRewardTime);
             uint256 erc20Reward = nrOfBlocks
                 .mul(rewardPerSecond)
@@ -650,11 +548,9 @@ contract LockedStakingFarm is CustomOwnable, Pausable, IFarm {
                 .mul(poolInfo[poolPid_].accERC20PerShare)
                 .div(1e36);
 
-            usersInfos[poolPid_][user_].deposits[
-                userDepositIndex_
-            ] = usersInfos[poolPid_][user_].deposits[
-                usersInfos[poolPid_][user_].deposits.length - 1
-            ];
+            usersInfos[poolPid_][user_].deposits[userDepositIndex_] = usersInfos[
+                poolPid_
+            ][user_].deposits[usersInfos[poolPid_][user_].deposits.length - 1];
             usersInfos[poolPid_][user_].deposits.pop();
             usersInfos[poolPid_][user_].amount = amount;
         } else {
@@ -688,9 +584,7 @@ contract LockedStakingFarm is CustomOwnable, Pausable, IFarm {
     function _totalPastRewards() internal view returns (uint256) {
         if (block.timestamp < startTime) return 0;
 
-        uint256 lastTime = block.timestamp < endTime
-            ? block.timestamp
-            : endTime;
+        uint256 lastTime = block.timestamp < endTime ? block.timestamp : endTime;
 
         return
             rewardsAmountBeforeLastChange.add(

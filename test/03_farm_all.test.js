@@ -61,17 +61,17 @@ contract("Farm All", ([owner, alice, bob, carl,]) => {
 
     this.startTime = await getCurrentTime() + 100;
 
-    this.farm = await Farm.new(this.rewardToken.address, owner, owner);
+    this.farm = await Farm.new(this.rewardToken.address, owner);
 
     this.pools = [];
 
-    await this.farm.addPool(this.lp.address,15,0,0,0);
+    await this.farm.addPool(this.lp.address,15,0);
     this.totalMultiplier = 15;
     this.pools.push({
         mul: 15
     });
 
-    await this.farm.addPool(this.lp2.address,15,0,0,0);
+    await this.farm.addPool(this.lp2.address,15,0);
     this.totalMultiplier += 15;
     this.pools.push({
       mul: 15

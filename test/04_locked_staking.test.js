@@ -62,13 +62,11 @@ contract('Farm Locked staking', ([owner, alice, bob, carl, adminWallet, adminWal
         const currTime = await getCurrentTime();
         this.startTime = currTime + 100;
 
-        this.farm = await Farm.new(this.bep20.address,owner, adminWallet);
+        this.farm = await Farm.new(this.bep20.address,owner);
         await this.farm.addPool(
             this.lp.address, //lpToken_,
             15, //allocPoint_,
-            50,//deposit fee,
             100, //lockPeriodInDays_, 100 days 
-            5, //early unstake fee,
         );
 
         await this.bep20.approve(this.farm.address, toWei('5000000'));
